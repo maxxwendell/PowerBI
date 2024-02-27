@@ -1,0 +1,7 @@
+Nome Mes Max = 
+CALCULATE(
+    SELECTEDVALUE(TabCalendario[Mes Nome/Ano]),
+    FILTER(
+        TabCalendario,
+        RANKX( ALLSELECTED(TabCalendario),[#NAC Total],,DESC,Skip)=1)
+)
