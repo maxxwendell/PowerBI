@@ -1,0 +1,50 @@
+Compara Justa 1 = 
+VAR _DataMax = CALCULATE(
+    MAX(NAC_Compilado[Data]), 
+    ALL(TabCalendario))
+---------------
+VAR _DiaMax = DAY(_DataMax) 
+VAR _MesMax = MONTH(_DataMax) 
+VAR _AnoMax = YEAR(_DataMax) 
+----------------------
+VAR _DataConxteto = MAX(TabCalendario[Date])
+VAR _MesContexto = MONTH(_DataConxteto)
+VAR _AnoContexto = YEAR(_DataConxteto)
+-----------------------
+VAR _Resultado_ultimo_mes_diferente_janeiro =
+CALCULATE( 
+    [NAC Total],
+    FILTER(
+        ALL(TabCalendario[Date]),
+        TabCalendario[Date] >= DATE(_AnoContexto,_MesContexto-1,1) &&
+        TabCalendario[Date] >= DATE(_AnoContexto,_MesContexto-1,_DiaMax)
+        )
+    )
+VAR _Resultado_ultimo_mes_igual_janeiro =
+CALCULATE( 
+    [NAC Total],
+    FILTER(
+        ALL(TabCalendario[Date]),
+        TabCalendario[Date] >= DATE(_AnoContexto -1, 12 ,1 ) &&
+        TabCalendario[Date] >= DATE(_AnoContexto -1, 12, _DiaMax)
+        )
+    )
+VAR _Resultado_ultimo_mes =
+IF( 
+    _MesMax = 1,
+    _Resultado_ultimo_mes_igual_janeiro,
+    _Resultado_ultimo_mes_diferente_janeiro)
+
+VAR _Mes_Anterior_Padrao =
+CALCULATE(
+    [NAC Total],
+    DATEADD(TabCalendario[Date], -1,MONTH)
+)
+VAR _Resultado_Final = 
+IF( 
+    _MesContexto = _MesMax &&  _AnoContexto =_AnoMax , 
+    _Resultado_ultimo_mes , _Mes_Anterior_Padrao)
+    
+
+RETURN 
+_Resultado_Final
