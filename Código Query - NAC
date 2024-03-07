@@ -1,0 +1,15 @@
+let
+    Fonte = Csv.Document(File.Contents("\\10.0.20.65\DirJudiciaria\Gabinete\Comum\Cleyton\2024\Fevereiro\NAC\lista NAC dia 27 a 05 Fev a Mar.txt"),[Delimiter="#", Columns=5, Encoding=1252, QuoteStyle=QuoteStyle.None]),
+    #"Tipo Alterado" = Table.TransformColumnTypes(Fonte,{{"Column1", Int64.Type}, {"Column2", type text}, {"Column3", type text}, {"Column4", type datetime}, {"Column5", type text}}),
+    #"Texto Extraído Antes do Delimitador" = Table.TransformColumns(#"Tipo Alterado", {{"Column5", each Text.BeforeDelimiter(_, "-"), type text}}),
+    #"Colocar Cada Palavra Em Maiúscula" = Table.TransformColumns(#"Texto Extraído Antes do Delimitador",{{"Column5", Text.Proper, type text}}),
+    #"Remover Espaco" = Table.TransformColumns(#"Colocar Cada Palavra Em Maiúscula",{{"Column5", each if Text.EndsWith(_, " ") then Text.Start(_, Text.Length(_) - 1) else _}}),
+    #"Consultas Mescladas" = Table.NestedJoin(#"Remover Espaco", {"Column5"}, Tab_Cargo, {"Nome Projud Tratado"}, "Tab_Cargo", JoinKind.LeftOuter),
+    #"Tab_Cargo Expandido" = Table.ExpandTableColumn(#"Consultas Mescladas", "Tab_Cargo", {"CARGO"}, {"CARGO"}),
+    #"Nome do Mês Inserido" = Table.AddColumn(#"Tab_Cargo Expandido", "Nome do Mês", each Date.MonthName([Column4]), type text),
+    #"Colocar Cada Palavra Em Maiúscula1" = Table.TransformColumns(#"Nome do Mês Inserido",{{"Nome do Mês", Text.Proper, type text}}),
+    #"Consultas Mescladas1" = Table.NestedJoin(#"Colocar Cada Palavra Em Maiúscula1", {"Column2"}, Tab_Unidade1, {"UNIDADE"}, "Tab_Unidade1", JoinKind.LeftOuter),
+    #"Tab_Unidade1 Expandido" = Table.ExpandTableColumn(#"Consultas Mescladas1", "Tab_Unidade1", {"TIPO", "CATEGORIA"}, {"TIPO", "CATEGORIA"}),
+    #"Colunas Reordenadas" = Table.ReorderColumns(#"Tab_Unidade1 Expandido",{"Column1", "Column2", "Column3", "Column4", "Column5", "CARGO", "Nome do Mês", "CATEGORIA", "TIPO"})
+in
+    #"Colunas Reordenadas"
