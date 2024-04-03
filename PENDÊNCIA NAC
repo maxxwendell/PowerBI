@@ -1,0 +1,18 @@
+let
+    Fonte = Excel.CurrentWorkbook(){[Name="NAC_Processo"]}[Content],
+    #"Tipo Alterado" = Table.TransformColumnTypes(Fonte,{{"ID", Int64.Type}, {"Comarca", type text}, {"Movimentação", type text}, {"Data", type datetime}, {"Nome", type text}, {"Cargo", type text}, {"Mês", type text}, {"Lotação", type text}, {"Tipo", type text}, {"Valor", Int64.Type}}),
+    #"Data Extraída" = Table.TransformColumns(#"Tipo Alterado",{{"Data", DateTime.Date, type date}}),
+    #"Linhas Filtradas" = Table.SelectRows(#"Data Extraída", each Date.IsInPreviousMonth([Data]) or Date.IsInNextMonth([Data])),
+    #"Filtro Mês anterior" = Table.SelectRows(#"Linhas Filtradas", each true),
+    #"Fim do Mês Inserido" = Table.AddColumn(#"Filtro Mês anterior", "Fim do Mês", each Date.EndOfMonth([Data]), type date),
+    #"Linhas Agrupadas" = Table.Group(#"Fim do Mês Inserido", {"Comarca", "Nome", "Cargo", "Mês", "Lotação", "Fim do Mês"}, {{"Contagem", each Table.RowCount(_), Int64.Type}}),
+    #"Colunas Removidas" = Table.RemoveColumns(#"Linhas Agrupadas",{"Contagem"}),
+    #"Colunas Reordenadas" = Table.ReorderColumns(#"Colunas Removidas",{"Comarca", "Fim do Mês", "Nome", "Cargo", "Mês", "Lotação"}),
+    #"Personalização Adicionada" = Table.AddColumn(#"Colunas Reordenadas", "Personalizar", each "Pendência"),
+    #"Colunas Reordenadas1" = Table.ReorderColumns(#"Personalização Adicionada",{"Comarca", "Personalizar", "Fim do Mês", "Nome", "Cargo", "Mês", "Lotação"}),
+    #"Coluna Duplicada" = Table.DuplicateColumn(#"Colunas Reordenadas1", "Personalizar", "TIPO"),
+    #"Consultas Mescladas" = Table.NestedJoin(#"Coluna Duplicada", {"Comarca", "Nome", "Mês"}, #"Março Pendencias", {"Column1.1", "Column1.2", "Column1.3"}, "Março Pendencias", JoinKind.LeftOuter),
+    #"Março Pendencias Expandido" = Table.ExpandTableColumn(#"Consultas Mescladas", "Março Pendencias", {"Column1.4"}, {"Março Pendencias.Column1.4"}),
+    #"Linhas Filtradas1" = Table.SelectRows(#"Março Pendencias Expandido", each ([Março Pendencias.Column1.4] <> null))
+in
+    #"Linhas Filtradas1"
