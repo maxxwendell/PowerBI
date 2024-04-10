@@ -1,15 +1,19 @@
 let
-    Fonte = Csv.Document(File.Contents("\\10.0.20.65\DirJudiciaria\Gabinete\Comum\Cleyton\2024\Fevereiro\NAC\lista NAC dia 27 a 05 Fev a Mar.txt"),[Delimiter="#", Columns=5, Encoding=1252, QuoteStyle=QuoteStyle.None]),
+    Fonte = Csv.Document(File.Contents("\\10.0.20.65\DirJudiciaria\Gabinete\Comum\Cleyton\2024\03 Março\NAC\NAC 26 a 31.03.txt"),[Delimiter="#", Columns=5, Encoding=1252, QuoteStyle=QuoteStyle.None]),
     #"Tipo Alterado" = Table.TransformColumnTypes(Fonte,{{"Column1", Int64.Type}, {"Column2", type text}, {"Column3", type text}, {"Column4", type datetime}, {"Column5", type text}}),
-    #"Texto Extraído Antes do Delimitador" = Table.TransformColumns(#"Tipo Alterado", {{"Column5", each Text.BeforeDelimiter(_, "-"), type text}}),
-    #"Colocar Cada Palavra Em Maiúscula" = Table.TransformColumns(#"Texto Extraído Antes do Delimitador",{{"Column5", Text.Proper, type text}}),
-    #"Remover Espaco" = Table.TransformColumns(#"Colocar Cada Palavra Em Maiúscula",{{"Column5", each if Text.EndsWith(_, " ") then Text.Start(_, Text.Length(_) - 1) else _}}),
-    #"Consultas Mescladas" = Table.NestedJoin(#"Remover Espaco", {"Column5"}, Tab_Cargo, {"Nome Projud Tratado"}, "Tab_Cargo", JoinKind.LeftOuter),
-    #"Tab_Cargo Expandido" = Table.ExpandTableColumn(#"Consultas Mescladas", "Tab_Cargo", {"CARGO"}, {"CARGO"}),
-    #"Nome do Mês Inserido" = Table.AddColumn(#"Tab_Cargo Expandido", "Nome do Mês", each Date.MonthName([Column4]), type text),
+    #"Colunas Renomeadas" = Table.RenameColumns(#"Tipo Alterado",{{"Column2", "Comarca"}, {"Column3", "Movimentação"}, {"Column4", "Data"}, {"Column5", "Nome"}}),
+    #"Data Extraída" = Table.TransformColumns(#"Colunas Renomeadas",{{"Data", DateTime.Date, type date}}),
+    #"Colocar Cada Palavra Em Maiúscula" = Table.TransformColumns(#"Data Extraída",{{"Nome", Text.Proper, type text}}),
+    #"Texto Extraído Antes do Delimitador" = Table.TransformColumns(#"Colocar Cada Palavra Em Maiúscula", {{"Nome", each Text.BeforeDelimiter(_, "-"), type text}}),
+    #"Texto Limpo" = Table.TransformColumns(#"Texto Extraído Antes do Delimitador",{{"Nome", each if Text.EndsWith(_, " ") then Text.Start(_, Text.Length(_) - 1) else _}}),
+    #"Linhas Agrupadas" = Table.Group(#"Texto Limpo", {"Comarca", "Movimentação", "Data", "Nome"}, {{"Contagem", each Table.RowCount(_), Int64.Type}}),
+    #"Consultas Mescladas" = Table.NestedJoin(#"Linhas Agrupadas", {"Nome"}, Tab_Cargo, {"NOME"}, "Tab_Cargo", JoinKind.LeftOuter),
+    #"Tab_Cargo Expandido" = Table.ExpandTableColumn(#"Consultas Mescladas", "Tab_Cargo", {"CARGO"}, {"Tab_Cargo.CARGO"}),
+    #"Consultas Mescladas1" = Table.NestedJoin(#"Tab_Cargo Expandido", {"Comarca"}, Tab_Unidade2, {"UNIDADE"}, "Tab_Unidade2", JoinKind.LeftOuter),
+    #"Tab_Unidade2 Expandido" = Table.ExpandTableColumn(#"Consultas Mescladas1", "Tab_Unidade2", {"GRAU", "TIPO", "CATEGORIA"}, {"Tab_Unidade2.GRAU", "Tab_Unidade2.TIPO", "Tab_Unidade2.CATEGORIA"}),
+    #"Nome do Mês Inserido" = Table.AddColumn(#"Tab_Unidade2 Expandido", "Nome do Mês", each Date.MonthName([Data]), type text),
     #"Colocar Cada Palavra Em Maiúscula1" = Table.TransformColumns(#"Nome do Mês Inserido",{{"Nome do Mês", Text.Proper, type text}}),
-    #"Consultas Mescladas1" = Table.NestedJoin(#"Colocar Cada Palavra Em Maiúscula1", {"Column2"}, Tab_Unidade1, {"UNIDADE"}, "Tab_Unidade1", JoinKind.LeftOuter),
-    #"Tab_Unidade1 Expandido" = Table.ExpandTableColumn(#"Consultas Mescladas1", "Tab_Unidade1", {"TIPO", "CATEGORIA"}, {"TIPO", "CATEGORIA"}),
-    #"Colunas Reordenadas" = Table.ReorderColumns(#"Tab_Unidade1 Expandido",{"Column1", "Column2", "Column3", "Column4", "Column5", "CARGO", "Nome do Mês", "CATEGORIA", "TIPO"})
+    #"Personalização Adicionada" = Table.AddColumn(#"Colocar Cada Palavra Em Maiúscula1", "Tipo", each "Processo"),
+    #"Colunas Reordenadas" = Table.ReorderColumns(#"Personalização Adicionada",{"Comarca", "Movimentação", "Data", "Nome", "Tab_Cargo.CARGO", "Nome do Mês", "Tab_Unidade2.CATEGORIA", "Tipo", "Contagem", "Tab_Unidade2.GRAU", "Tab_Unidade2.TIPO"})
 in
     #"Colunas Reordenadas"
