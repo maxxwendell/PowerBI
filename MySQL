@@ -1,0 +1,17 @@
+Servidor: 10.90.16.202
+Banco de Dados: db_projudi
+
+Opções Avançadas:
+
+// VERSÃO 1 //
+SELECT comarca, nome, data, Count(*) AS quantidade
+FROM dados_juizes_2grau
+GROUP BY comarca, movimentacao, nome, data;
+
+// VERSÃO 2 //
+SELECT comarca, 
+       nome, 
+       DATE(data) AS data, 
+       COUNT(*) AS quantidade
+FROM dados_juizes_2grau
+GROUP BY comarca, nome, DATE(data);
