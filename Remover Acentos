@@ -1,0 +1,24 @@
+1) Criar consulta Nula
+
+2) no editor avançado, incluir o código:
+
+
+
+(texto as text) =>
+
+let
+
+    TextoComAcento = Text.ToList("ŠŽšžŸÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖÙÚÛÜÝàáâãäåçèéêëìíîïðñòóôõöùúûüýÿ"),
+    TextoSemAcento = Text.ToList("SZszYAAAAAACEEEEIIIIDNOOOOOUUUUYaaaaaaceeeeiiiidnooooouuuuyy") ,
+    Palavras = List.Zip({TextoComAcento,TextoSemAcento}),
+    Corrigido = Text.ToList(texto),
+    Subistituir = List.ReplaceMatchingItems(Corrigido,Palavras),
+    Final = Text.Combine(Subistituir)
+
+in
+    Final
+
+
+
+
+3) Após, Adicionar NOVA COLUNA / Invocar Função
