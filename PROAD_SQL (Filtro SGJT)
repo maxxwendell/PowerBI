@@ -1,0 +1,75 @@
+SELECT * FROM 
+(SELECT pro_id_processo, 
+pro_numero_processo, 
+(select pes_nome from corporativo.cor_pessoa cp where cp.pes_id_pessoa = 
+(select min(int_id_interessado) from ged.ged_interessado gi where gi.int_id_processo = pro_id_processo)) as primeiro_interessado,
+pro_assunto as historico,
+pro_data_criacao, 
+pro_id_unidade_autor as id_unidade_criacao,
+(SELECT uni_nome FROM corporativo.cor_unidade WHERE uni_id_unidade = pro_id_unidade_autor) as unidade_criacao, 
+pro_id_unidade_token as id_unidade_onde_esta,
+(SELECT uni_nome FROM corporativo.cor_unidade WHERE uni_id_unidade = pro_id_unidade_token) as onde_esta, 
+(select uni_id_unidade_pai FROM corporativo.cor_unidade where uni_id_unidade = pro_id_unidade_token) as id_unidade_pai,
+(SELECT uni_nome FROM corporativo.cor_unidade WHERE uni_id_unidade = 
+(select uni_id_unidade_pai FROM corporativo.cor_unidade where uni_id_unidade = pro_id_unidade_token)) as unidade_pai, 
+(select mov_id_unidade_envio from ged.ged_movimentacao_processo where mov_id_movimentacao_processo =
+(select max(gmp.mov_id_movimentacao_processo) from ged.ged_movimentacao_processo gmp where mov_id_processo = pro_id_processo)) as id_unidade_anterior, 
+(SELECT uni_nome FROM corporativo.cor_unidade WHERE uni_id_unidade = 
+(select mov_id_unidade_envio from ged.ged_movimentacao_processo where mov_id_movimentacao_processo =
+(select max(gmp.mov_id_movimentacao_processo) from ged.ged_movimentacao_processo gmp where mov_id_processo = pro_id_processo))) as unidade_anterior, 
+pro_situacao, 
+(select tpr_nome from ged.ged_tipo_processo where tpr_id_tipo_processo = pro_id_tipo_processo) as assunto,
+-- ultimo movimento do processo ou do anexo
+CASE 
+WHEN pro_id_processo_anexo IS NULL 
+THEN pro_data_ultimo_movimento 
+ELSE 
+(SELECT pt.pro_data_ultimo_movimento FROM ged.ged_processo pt where pt.pro_id_processo = p.pro_id_processo_anexo) 
+END as data_ultimo_movimento,
+-- data de recebimento - primeiro movimento das unidades de recebimento
+(select min(me.mov_data_envio) from ged.ged_movimentacao_processo me where me.mov_id_processo = p.pro_id_processo 
+and mov_id_unidade_recebimento in 
+(SELECT uni_id_unidade FROM ged.lista_unidades('3178')) ) as data_primeira_entrada, 
+-- data do última saída
+(select max(mov_data_envio) from ged.ged_movimentacao_processo t1 
+where mov_id_processo = p.pro_id_processo and mov_id_unidade_envio in 
+(SELECT uni_id_unidade FROM ged.lista_unidades('3178')) 
+and mov_id_unidade_recebimento not in 
+(SELECT uni_id_unidade FROM ged.lista_unidades('3178')) ) as data_ultima_saida, 
+(select me.mov_data_envio from ged.ged_movimentacao_processo me where me.mov_id_movimentacao_processo = 
+(select max(me.mov_id_movimentacao_processo) from ged.ged_movimentacao_processo me where me.mov_id_processo = p.pro_id_processo)) as data_chegada_unidade, 
+(select me.mov_data_recebimento from ged.ged_movimentacao_processo me where me.mov_id_movimentacao_processo = 
+(select max(me.mov_id_movimentacao_processo) from ged.ged_movimentacao_processo me where me.mov_id_processo = p.pro_id_processo)) as data_recebimento_unidade, 
+(select pes_nome from corporativo.cor_pessoa cp where cp.pes_id_pessoa = pro_id_pessoa_token) as responsavel,
+(SELECT MIN(pfi_data) FROM ged.ged_processo_situacao where pfi_id_processo = pro_id_processo 
+and pfi_situacao = 'ARQUIVADO') as data_primeiro_arquivamento, 
+pro_sigiloso, pro_sobrestado, 
+CASE 
+WHEN pro_sobrestado = 'SIM' THEN 
+(SELECT MAX(pfi_data) FROM ged.ged_processo_situacao where pfi_id_processo = pro_id_processo and pfi_situacao = 'SOBRESTADO') 
+ELSE NULL 
+END as data_sobrestamento, 
+EXTRACT (Day FROM 
+(now() - CASE 
+WHEN pro_id_processo_anexo IS NULL THEN pro_data_ultimo_movimento 
+ELSE 
+(SELECT pt.pro_data_ultimo_movimento FROM ged.ged_processo pt where pt.pro_id_processo = p.pro_id_processo_anexo) 
+END)) as dias_na_unidade, 
+pro_id_processo_anexo as id_processo_principal, 
+(select extract(Day from tempo_efetivo_hierarquia) 
+from ged.tempo_efetivo_hierarquia(
+(select array_agg(uni_id_unidade) from ged.lista_unidades('3178')),p.pro_id_processo)) as tempo_efetivo_hierarquia,  
+(SELECT COUNT(*) FROM ged.ged_peticao 
+where pti_id_processo = p.pro_id_processo and pti_situacao in ('EM TRAMITE', 'RECEBIDA')) as peticao_sem_receber, 
+(SELECT min(pti_data_envio) FROM ged.ged_peticao 
+where pti_id_processo = p.pro_id_processo and pti_situacao in ('EM TRAMITE', 'RECEBIDA')) as peticao_mais_antiga_sem_recebimento, 
+(SELECT to_json(array_agg(json_campos)) 
+FROM (SELECT (SELECT row_to_json(_) as json_campos 
+FROM (SELECT pca_id_processo_campo as id_campo,pca_nome as nome_campo, pca_valor as valor_campo, 
+pca_identificador as identificador_campo) as _) FROM  ged.ged_processo_campo  
+WHERE pca_id_processo = pro_id_processo) AS tjson_campos) as campos_processo FROM ged.ged_processo p  
+WHERE p.pro_id_processo in ( SELECT distinct mov_id_processo FROM ged.ged_movimentacao_processo 
+where mov_id_unidade_recebimento in
+(SELECT uni_id_unidade FROM ged.lista_unidades('3178') )) ) as processo_area 
+WHERE 1=1 AND pro_situacao <> 'ARQUIVADO' 
+ORDER BY pro_id_processo
